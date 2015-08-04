@@ -24,6 +24,7 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{"backtrace","Display infomation about the stack frame",mon_backtrace}
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -55,10 +56,50 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
+void mon_backtrace_helper(uint32_t* ebpAdr)
+{
+	uintptr_t eipAddr = (uintptr_t)ebpAdr[1];
+	struct Eipdebuginfo info;
+	int argsCount = 0;
+	
+	if(debuginfo_eip(eipAddr,&info) != -1)
+	{
+		// get the debug info sucessfully
+		argsCount = info.eip_fn_narg;
+		cprintf(" ebp %08x  eip %08x args",
+		ebpAdr,
+		ebpAdr[1]);
+	int i = 0;
+	for(;i < 5;++i)
+	{
+		cprintf(" %08x",ebpAdr[i+2]);	
+	}
+	cprintf("\n");
+	cprintf("%s:%d: %.*s+%d\n",
+		info.eip_file,
+		info.eip_line,
+		info.eip_fn_namelen,
+		info.eip_fn_name,
+		eipAddr - info.eip_fn_addr);
+	}
+	else assert(0);
+	
+}
+
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
+	//ignore argc & argv and tf?
+	//get the ebp of mon_backtrace
+	uint32_t* ebpAdr = (uint32_t*)read_ebp();
+	cprintf ("Stack backtrace:\n");
+	while(ebpAdr != NULL)
+	{
+		mon_backtrace_helper(ebpAdr);
+		ebpAdr = (uint32_t*)(*ebpAdr);
+	}
+	
 	return 0;
 }
 
