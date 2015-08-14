@@ -5,6 +5,7 @@
 #include <inc/error.h>
 #include <inc/string.h>
 #include <inc/assert.h>
+#include <kern/monitor.h>
 
 #include <kern/pmap.h>
 #include <kern/kclock.h>
@@ -17,7 +18,7 @@ static size_t npages_basemem;	// Amount of base memory (in pages)
 pde_t *kern_pgdir;		// Kernel's initial page directory
 struct PageInfo *pages;		// Physical page state array
 static struct PageInfo *page_free_list;	// Free list of physical pages
-
+void walk_list(void);
 
 // --------------------------------------------------------------
 // Detect machine's physical memory setup.
@@ -27,6 +28,12 @@ static int
 nvram_read(int r)
 {
 	return mc146818_read(r) | (mc146818_read(r + 1) << 8);
+}
+
+void set_free_list(struct PageInfo* ptr)
+{
+	assert(ptr != NULL);
+	page_free_list = ptr;
 }
 
 static void
@@ -276,7 +283,7 @@ page_init(void)
 	assert(endIndex < npages);
 	pages[0].pp_ref = 1;
 	for (i = 1; i < startIndex; i++) {
-		
+		assert(startIndex <= npages);
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
 		page_free_list = &pages[i];
@@ -287,11 +294,11 @@ page_init(void)
 	}
 	for(i = endIndex;i < npages;++i)
 	{
-		
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
-		page_free_list = &pages[i];	
+		page_free_list = &pages[i];
 	}
+	
 	//extern char end[];
 	//page_free_list = page_free_list->pp_link;
 	//remove_list_item(IOPHYSMEM, (uint32_t)end / PGSIZE);
@@ -303,6 +310,24 @@ page_init(void)
 	//remove_list_item(PPN(PADDR(pages)), PPN(PADDR(pages + npages)) );
 	//we can do all things above by one sentence
 	//page_free_list = pages + (PADDR(pages + npages) / PGSIZE);
+}
+
+void walk_list(void)
+{
+	struct PageInfo* ptr = page_free_list;
+	uint32_t i = 0;
+	while(ptr != NULL)
+	{
+		++i;
+		ptr = ptr->pp_link;
+	}
+	if(i == 0)
+	{
+		cprintf("-------------------------\n");
+		mon_backtrace(0,0,0);
+		cprintf("-------------------------\n");
+	}
+	cprintf("%d\n",i);
 }
 
 //
@@ -378,15 +403,37 @@ page_decref(struct PageInfo* pp)
 // Hint 2: the x86 MMU checks permission bits in both the page directory
 // and the page table, so it's safe to leave permissions in the page
 // directory more permissive than strictly necessary.
+// Hint 2 means we could ignore the permissive in page directory.
 //
 // Hint 3: look at inc/mmu.h for useful macros that mainipulate page
 // table and page directory entries.
 //
+int bh = 0;
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	return NULL;
+	//10 + 10 + 12 = 32,each page table needs 2^10 * 2^2
+	//A page is 4KB = 2^2 * 2^10
+	
+	uint32_t index = PDX(va);
+	if(pgdir[index] & PTE_P)
+	{
+		return (pte_t*)KADDR(PTE_ADDR(pgdir[index])) + PTX(va);
+	}
+	else
+	{
+		if(create == false) return NULL;
+		else
+		{
+			struct PageInfo* memAlloc = page_alloc(ALLOC_ZERO);
+			if(memAlloc == NULL) return NULL;
+			memAlloc->pp_ref++;
+			pte_t* pteAlloc = (pte_t*)(page2kva(memAlloc));
+			pgdir[index] = PADDR(pteAlloc) | PTE_P | PTE_U | PTE_W;
+			return pteAlloc + PTX(va);
+		}
+	}
 }
 
 //
@@ -400,10 +447,21 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 // mapped pages.
 //
 // Hint: the TA solution uses pgdir_walk
+// bit 0-5 are the permission bits
+// but the comment below tells me the low 12bits are all for permission! make him happy...
 static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
+	uint32_t i ;
+	for(i = 0;i < size;i+=PGSIZE)
+	{
+		pte_t* vaPte = pgdir_walk(pgdir,(const void*)va,true);
+		vaPte[0] = PTE_ADDR(pa) | (perm|PTE_P);
+		pa += PGSIZE;
+		va += PGSIZE;
+	}
+	
 }
 
 //
@@ -435,7 +493,23 @@ int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
 	// Fill this function in
-	return 0;
+	pte_t* vaPte = pgdir_walk(pgdir,va,true);
+	if(vaPte != NULL)
+	{
+		//there is already an address
+		if(*vaPte & PTE_P)
+		{
+			if(PTE_ADDR(*vaPte) == page2pa(pp))
+				--(pp->pp_ref);
+			else
+				page_remove(pgdir,va);	
+		}
+		++(pp->pp_ref);
+		*vaPte =  PTE_ADDR(page2pa(pp)) | (PTE_P | perm);
+		tlb_invalidate(pgdir,va);
+		return 0;
+	}
+	return -E_NO_MEM;
 }
 
 //
@@ -453,7 +527,14 @@ struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	// Fill this function in
-	return NULL;
+	pte_t* vaPte = pgdir_walk(pgdir,va,false);
+	if(vaPte == NULL || !(*vaPte & PTE_P)) return NULL;
+	physaddr_t finalAddr = PTE_ADDR(*vaPte);
+	if(pte_store != NULL)
+	{
+		*pte_store = vaPte;
+	}
+	return pa2page(finalAddr);
 }
 
 //
@@ -475,6 +556,19 @@ void
 page_remove(pde_t *pgdir, void *va)
 {
 	// Fill this function in
+	pte_t* pte = NULL;
+	struct PageInfo* pageInfo = page_lookup(pgdir,va,&pte);
+	if(pageInfo != NULL)
+	{
+		//- The ref count on the physical page should decrement.
+		//- The physical page should be freed if the refcount reaches 0.
+		page_decref(pageInfo);
+	}	
+	if(pte)
+	{
+		*pte = 0;
+		tlb_invalidate(pgdir,va);
+	}
 }
 
 //
@@ -617,7 +711,6 @@ check_page_alloc(void)
 
 	// give free list back
 	page_free_list = fl;
-
 	// free the pages we took
 	page_free(pp0);
 	page_free(pp1);
@@ -629,6 +722,7 @@ check_page_alloc(void)
 	assert(nfree == 0);
 
 	cprintf("check_page_alloc() succeeded!\n");
+	assert(page_free_list != NULL);
 }
 
 //
@@ -699,6 +793,7 @@ check_va2pa(pde_t *pgdir, uintptr_t va)
 	p = (pte_t*) KADDR(PTE_ADDR(*pgdir));
 	if (!(p[PTX(va)] & PTE_P))
 		return ~0;
+		
 	return PTE_ADDR(p[PTX(va)]);
 }
 
@@ -744,12 +839,10 @@ check_page(void)
 	assert(check_va2pa(kern_pgdir, 0x0) == page2pa(pp1));
 	assert(pp1->pp_ref == 1);
 	assert(pp0->pp_ref == 1);
-
 	// should be able to map pp2 at PGSIZE because pp0 is already allocated for page table
 	assert(page_insert(kern_pgdir, pp2, (void*) PGSIZE, PTE_W) == 0);
 	assert(check_va2pa(kern_pgdir, PGSIZE) == page2pa(pp2));
 	assert(pp2->pp_ref == 1);
-
 	// should be no free memory
 	assert(!page_alloc(0));
 
@@ -757,15 +850,12 @@ check_page(void)
 	assert(page_insert(kern_pgdir, pp2, (void*) PGSIZE, PTE_W) == 0);
 	assert(check_va2pa(kern_pgdir, PGSIZE) == page2pa(pp2));
 	assert(pp2->pp_ref == 1);
-
 	// pp2 should NOT be on the free list
 	// could happen in ref counts are handled sloppily in page_insert
 	assert(!page_alloc(0));
-
 	// check that pgdir_walk returns a pointer to the pte
 	ptep = (pte_t *) KADDR(PTE_ADDR(kern_pgdir[PDX(PGSIZE)]));
 	assert(pgdir_walk(kern_pgdir, (void*)PGSIZE, 0) == ptep+PTX(PGSIZE));
-
 	// should be able to change permissions too.
 	assert(page_insert(kern_pgdir, pp2, (void*) PGSIZE, PTE_W|PTE_U) == 0);
 	assert(check_va2pa(kern_pgdir, PGSIZE) == page2pa(pp2));
