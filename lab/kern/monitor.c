@@ -6,6 +6,8 @@
 #include <inc/memlayout.h>
 #include <inc/assert.h>
 #include <inc/x86.h>
+#include <inc/mmu.h>
+#include <kern/pmap.h>
 
 #include <kern/console.h>
 #include <kern/monitor.h>
@@ -24,7 +26,12 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
-	{"backtrace","Display infomation about the stack frame",mon_backtrace}
+	{ "backtrace","Display infomation about the stack frame",mon_backtrace},
+	{ "showmappings",
+		"display the physical page mappings and corresponding permission bits",
+		mon_showmappings },
+		{"setmappings","Set Virtual Address",mon_setmappings},
+		{"dumpmem","Dump the memory.-v for virtual address,-p for physical ",mon_dumpmem}
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -103,6 +110,145 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
+
+
+int showmappings(uint32_t lAddr,uint32_t rAddr)
+{
+	for(;lAddr < rAddr;lAddr += PGSIZE)
+	{
+		pde_t* pde = pgdir_walk(kern_pgdir,(void*)lAddr,false);
+		cprintf("%x - %x     ",lAddr,lAddr + PGSIZE);
+		if(pde == NULL) cprintf("Not mapped.\n");//TODO
+		else
+		{
+			uint32_t pteContent = pde[0];
+			cprintf("%x ",PTE_ADDR(pteContent));
+			if(pteContent & PTE_P)
+			{
+				if(pteContent & PTE_U)
+				{
+					cprintf("User ");
+				}
+				else
+				{
+					cprintf("Kernel ");
+				}
+				if(pteContent & PTE_W)
+				{
+					cprintf("Read/Write ");
+				}
+				else
+				{
+					cprintf("Read ");
+				}
+			}
+			else cprintf("Not mapped.\n");//TO DO
+		}
+		cprintf("\n");		
+	}
+	return 0;
+}
+
+
+
+int mon_showmappings(int argc,char** argv,struct Trapframe *tf)
+{
+	int i = 1;
+	for(;i+1 < argc;i+=2)
+	{
+		char* lhs = argv[i];
+		char* rhs = argv[i+1];
+		cprintf("%s %s\n",lhs,rhs);
+		uint32_t lAddr = strtol(lhs,NULL,16);
+		uint32_t rAddr = strtol(rhs,NULL,16);
+		//make lAddr align to the neasrest page
+		if(lAddr < PGSIZE) lAddr = 0;
+		else lAddr = lAddr - lAddr % PGSIZE;
+		rAddr = ROUNDUP(rAddr,PGSIZE);
+		showmappings(lAddr,rAddr);
+		
+	}
+	return 0;
+}
+
+int mon_setmappings(int argc,char** argv,struct Trapframe *tf)
+{
+	if(argc == 5)
+	{
+		uint32_t startVA = strtol(argv[1],NULL,16);
+		uint32_t pageNum = strtol(argv[2],NULL,10);
+		uint32_t phyAddr = strtol(argv[3],NULL,16);
+		uint32_t totalPageSize = pageNum * PGSIZE;
+		if(startVA < PGSIZE) startVA = 0;
+		else startVA = ROUNDUP((startVA - PGSIZE),PGSIZE);
+		uint32_t i = 0;
+		
+		const char* permStr = argv[4];
+		uint32_t perm = 0;
+		if(permStr[0] == 'u' || permStr[0] == 'U')
+			perm |= PTE_U;
+		if(permStr[1] == 'w' || permStr[1] == 'W')
+			perm |= PTE_W;
+		for(;i < totalPageSize;i+=PGSIZE)
+		{
+			struct PageInfo* pp = pa2page(phyAddr + i);
+			//if(pp->pp_ref == 0)
+				//cprintf("setmappings:physical page 0x%x ~ 0x%x is not mounted.",
+			//	phyAddr+i,phyAddr+i+PGSIZE);	
+			//else
+			{
+				page_insert(kern_pgdir,pp,(void*)(startVA + i),perm);	
+			}
+		}
+		showmappings(startVA,startVA + totalPageSize);
+	}
+	return 0;
+}
+
+void dumpmemv(uint32_t* start,uint32_t* end)
+{
+	uint32_t i = 0;
+	for(;start < end;start += 4)
+	{
+		cprintf("0x%x:	0x%x 0x%x 0x%x 0x%x\n",start,start[0],start[1],start[2],start[3]);	
+	}
+}
+
+void dumpmemp(physaddr_t start,physaddr_t end)
+{
+	for(;start < end;start+=16)
+	{
+		uint32_t i = 0;
+		cprintf("0x%x:	",KADDR(start));
+		for(;i < 4;++i)
+		{
+			uint32_t* va = KADDR(start+i*4);
+			cprintf("0x%x ",*va);	
+		}
+		cprintf("\n");
+	}
+}
+
+
+int mon_dumpmem(int argc,char** argv,struct Trapframe *tf)
+{
+	if(argc == 4)
+	{
+		const char* vOrP = argv[1];
+		uint32_t byteCount = strtol(argv[3],NULL,10);
+		if(vOrP[0] == 'v')
+		{
+			uint32_t startAddr = strtol(argv[2],NULL,16);
+			dumpmemv((uint32_t*)startAddr,(uint32_t*)(startAddr + byteCount * 4));
+		}
+		else
+		{
+			physaddr_t startAddr = strtol(argv[2],NULL,16);
+			dumpmemp(startAddr,startAddr+byteCount*4);
+		}
+	}
+	return 0;
+}
 
 
 /***** Kernel monitor command interpreter *****/
