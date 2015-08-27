@@ -8,6 +8,7 @@
 *.so
 *.out
 *.img
+*.pyc
 obj
 
 # Packages #

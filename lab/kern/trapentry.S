@@ -20,6 +20,19 @@
  *   void NAME();
  * where NAME is the argument passed to TRAPHANDLER.
  */
+ 
+
+ 
+#define CONCRETEx(str1,str2) str1##str2
+
+#define CONCRETE(str1,str2) CONCRETEx(str1,str2)
+
+#define GET_HANDLER(str1) \
+	.long CONCRETE(str1,_handler)
+
+#define TRAPHANDLER_WRAPPER(name,num) \
+	TRAPHANDLER(CONCRETE(name,_handler),num)
+ 
 #define TRAPHANDLER(name, num)						\
 	.globl name;		/* define global symbol for 'name' */	\
 	.type name, @function;	/* symbol type is function */		\
@@ -32,6 +45,9 @@
  * It pushes a 0 in place of the error code, so the trap frame has the same
  * format in either case.
  */
+ #define TRAPHANDLER_NOEC_WRAPPER(name,num) \
+	TRAPHANDLER_NOEC(CONCRETE(name,_handler),num)
+ 
 #define TRAPHANDLER_NOEC(name, num)					\
 	.globl name;							\
 	.type name, @function;						\
@@ -40,16 +56,78 @@
 	pushl $0;							\
 	pushl $(num);							\
 	jmp _alltraps
+ 
+  .global idt_entries
+ 
+ .data
 
+ idt_entries:
+ 	GET_HANDLER(divide)
+	GET_HANDLER(debug)
+	GET_HANDLER(nmi)
+	GET_HANDLER(brkpt)
+	GET_HANDLER(oflow)
+	GET_HANDLER(bound)
+	GET_HANDLER(illop)
+	GET_HANDLER(device)
+	GET_HANDLER(dblflt)
+	.zero 4
+	GET_HANDLER(tss)
+	GET_HANDLER(segnp)
+	GET_HANDLER(stack)
+	GET_HANDLER(gpflt)
+	GET_HANDLER(pgflt)
+	.zero 4
+	GET_HANDLER(fperr)
+	GET_HANDLER(align)
+	GET_HANDLER(mchk)
+	GET_HANDLER(simderr)
+	.zero 236*4
+	/*GET_HANDLER(syscall)*/
+	
+ 
+ 
 .text
 
 /*
  * Lab 3: Your code here for generating entry points for the different traps.
  */
-
+TRAPHANDLER_NOEC_WRAPPER(divide,T_DIVIDE)
+TRAPHANDLER_NOEC_WRAPPER(debug,T_DEBUG)
+TRAPHANDLER_NOEC_WRAPPER(nmi,T_NMI)
+TRAPHANDLER_NOEC_WRAPPER(brkpt,T_BRKPT)
+TRAPHANDLER_NOEC_WRAPPER(oflow,T_OFLOW)
+TRAPHANDLER_NOEC_WRAPPER(bound,T_BOUND)
+TRAPHANDLER_NOEC_WRAPPER(illop,T_ILLOP)
+TRAPHANDLER_NOEC_WRAPPER(device,T_DEVICE)
+TRAPHANDLER_WRAPPER(dblflt,T_DBLFLT)
+TRAPHANDLER_WRAPPER(tss,T_TSS)
+TRAPHANDLER_WRAPPER(segnp,T_SEGNP)
+TRAPHANDLER_WRAPPER(stack,T_STACK)
+TRAPHANDLER_WRAPPER(gpflt,T_GPFLT)
+TRAPHANDLER_WRAPPER(pgflt,T_PGFLT)
+TRAPHANDLER_NOEC_WRAPPER(fperr,T_FPERR)
+TRAPHANDLER_WRAPPER(align,T_ALIGN)
+TRAPHANDLER_NOEC_WRAPPER(mchk,T_MCHK)
+TRAPHANDLER_NOEC_WRAPPER(simderr,T_SIMDERR)
 
 
 /*
  * Lab 3: Your code here for _alltraps
  */
 
+_alltraps:
+	pushw $0x0 /*tf_padding2*/
+	pushw %ds
+	pushw $0x0 
+	pushw %es
+	pushal
+	
+	movl $GD_KD,%eax
+	movw %ax,%ds
+	movw %ax,%es
+	
+	pushl %esp
+	
+	call trap
+		
