@@ -49,7 +49,10 @@ def test(points, title=None, parent=None):
             try:
                 fn()
             except AssertionError as e:
-                fail = str(e)
+                try:
+                    fail = str(e)
+                except UnicodeEncodeError as f:
+                    print("Unicode error")
 
             # Display and handle test result
             POSSIBLE += points

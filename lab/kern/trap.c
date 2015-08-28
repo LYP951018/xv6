@@ -70,9 +70,11 @@ trap_init(void)
 	{
 		switch(i)
 		{
+			case T_SYSCALL:
 			case T_BRKPT:
-				SETGATE(idt[T_BRKPT],0,GD_KT,idt_entries[i],3);
+				SETGATE(idt[i],0,GD_KT,idt_entries[i],3);
 				break;
+			
 			default:
 				SETGATE(idt[i],0,GD_KT,idt_entries[i],0);
 		}	
@@ -154,7 +156,31 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
-
+	switch(tf->tf_trapno)
+	{
+		case T_PGFLT:
+			page_fault_handler(tf);
+			return;
+		case T_BRKPT:
+			monitor(tf);
+			return;
+		case T_SYSCALL:
+		{
+			struct PushRegs* regs = &tf->tf_regs;
+			uint32_t ret = syscall(regs->reg_eax,
+				regs->reg_edx,
+				regs->reg_ecx,
+				regs->reg_ebx,
+				regs->reg_edi,
+				regs->reg_esi);
+			__asm __volatile("movl %0,%%eax"
+				::"r"(ret));
+			return;
+		}
+		break;
+		default:
+		break;
+	}
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
 	if (tf->tf_cs == GD_KT)

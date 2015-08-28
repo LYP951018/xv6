@@ -82,8 +82,9 @@
 	GET_HANDLER(align)
 	GET_HANDLER(mchk)
 	GET_HANDLER(simderr)
-	.zero 236*4
-	/*GET_HANDLER(syscall)*/
+	.zero 28*4
+	GET_HANDLER(syscall)
+	.zero 208*4
 	
  
  
@@ -110,6 +111,7 @@ TRAPHANDLER_NOEC_WRAPPER(fperr,T_FPERR)
 TRAPHANDLER_WRAPPER(align,T_ALIGN)
 TRAPHANDLER_NOEC_WRAPPER(mchk,T_MCHK)
 TRAPHANDLER_NOEC_WRAPPER(simderr,T_SIMDERR)
+TRAPHANDLER_NOEC_WRAPPER(syscall,T_SYSCALL)
 
 
 /*
@@ -117,10 +119,9 @@ TRAPHANDLER_NOEC_WRAPPER(simderr,T_SIMDERR)
  */
 
 _alltraps:
-	pushw $0x0 /*tf_padding2*/
-	pushw %ds
-	pushw $0x0 
-	pushw %es
+	/*pushw $0x0 tf_padding2*/
+	pushl %ds
+	pushl %es
 	pushal
 	
 	movl $GD_KD,%eax
