@@ -10,6 +10,7 @@
 #include <kern/trap.h>
 #include <kern/syscall.h>
 #include <kern/console.h>
+#include <kern/pmap.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -19,9 +20,8 @@ sys_cputs(const char *s, size_t len)
 {
 	// Check that the user has permission to read memory [s, s+len).
 	// Destroy the environment if not.
-
 	// LAB 3: Your code here.
-
+	user_mem_assert(curenv,(const void*)s,len,PTE_U);
 	// Print the string supplied by the user.
 	cprintf("%.*s", len, s);
 }
@@ -69,9 +69,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// Call the function corresponding to the 'syscallno' parameter.
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
-
 	//panic("syscall not implemented");
-
 	switch (syscallno) {
 		case SYS_cputs:
 			sys_cputs((const char*)a1,(size_t)a2);

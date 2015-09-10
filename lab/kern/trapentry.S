@@ -129,6 +129,12 @@ _alltraps:
 	movw %ax,%es
 	
 	pushl %esp
-	
+	movl $0, %ebp
 	call trap
+	#addl $4, %esp       # skip the argument we passed on stack to trap()
+  	#popal
+  	#popl %es
+  	#popl %ds
+  	#addl $8, %esp       # skip trapno and errcode
+  	#iret
 		

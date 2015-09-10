@@ -629,7 +629,24 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
-
+	//cprintf("va %x\n",va);
+	uint32_t low = (uint32_t)ROUNDDOWN(va,PGSIZE);
+	//cprintf("low %x\n",low);
+	uint32_t high = (uint32_t)ROUNDUP((const char*)va + len,PGSIZE);
+	//cprintf("high %x\n",high);
+	pte_t* pte = NULL;
+	perm &= PTE_U;
+	bool isFirst = true;
+	for(;low < high;low += PGSIZE)
+	{
+		pte = pgdir_walk(env->env_pgdir,(const void*)low,0);
+		if( pte == NULL || (pte[0] & perm) != perm)
+		{
+			user_mem_check_addr = isFirst ? (uint32_t)va : low;
+			return -E_FAULT;
+		}
+		isFirst = false;
+	}
 	return 0;
 }
 

@@ -173,8 +173,9 @@ trap_dispatch(struct Trapframe *tf)
 				regs->reg_ebx,
 				regs->reg_edi,
 				regs->reg_esi);
-			__asm __volatile("movl %0,%%eax"
-				::"r"(ret));
+			
+			if(ret < 0) panic("No such system call.");
+			regs->reg_eax = ret;
 			return;
 		}
 		break;
@@ -239,9 +240,9 @@ page_fault_handler(struct Trapframe *tf)
 	fault_va = rcr2();
 
 	// Handle kernel-mode page faults.
-
 	// LAB 3: Your code here.
-
+	if((tf->tf_cs & 3) != 3)
+		panic("kernel mode page faults.");
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
 

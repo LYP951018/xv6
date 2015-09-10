@@ -142,6 +142,7 @@ int showmappings(uint32_t lAddr,uint32_t rAddr)
 				{
 					cprintf("Read ");
 				}
+				cprintf(" content %x ",((uint32_t*)lAddr)[0]);
 			}
 			else cprintf("Not mapped.\n");//TO DO
 		}

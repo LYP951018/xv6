@@ -116,9 +116,12 @@ env_init(void)
 {
 	// Set up envs array
 	// LAB 3: Your code here.
-	uint32_t i = NENV;
+	uint32_t i = NENV - 1;
 	for(;i != (uint32_t)-1 ;--i)
 	{
+		envs[i].env_id = 0;
+		envs[i].env_status = ENV_FREE;
+		envs[i].env_runs = 0;
 		envs[i].env_link = env_free_list;
 		env_free_list = &envs[i];
 	}
@@ -269,16 +272,16 @@ region_alloc(struct Env *e, void *va, size_t len)
 {
 	// LAB 3: Your code here.
 	// (But only if you need it for load_icode.)
-	uint32_t realVA =(uint32_t)ROUNDDOWN(va,PGSIZE);
+	uint32_t vaStart =(uint32_t)ROUNDDOWN(va,PGSIZE);
 	
-	len = ROUNDUP(len,PGSIZE);
+	uint32_t vaEnd = (uint32_t)ROUNDUP((char*)va + len,PGSIZE);
 	uint32_t i = 0;
-	for(;i < len;i+=PGSIZE)
+	for(;vaStart < vaEnd;vaStart+=PGSIZE)
 	{
 		struct PageInfo* pp = page_alloc(0);
 		if(pp == NULL)
 			panic("page allocation fails.\n");
-		if(page_insert(e->env_pgdir,pp,(void*)(realVA+i),PTE_U | PTE_W) == -E_NO_MEM)
+		if(page_insert(e->env_pgdir,pp,(void*)(vaStart),PTE_U | PTE_W) < 0)
 		{
 			panic("page table allocation fails.\n");
 		}
@@ -382,8 +385,8 @@ env_create(uint8_t *binary, enum EnvType type)
 	int errCode = env_alloc(&e,0);
 	if(errCode == 0)
 	{
-		load_icode(e,binary);
 		e->env_type = type;
+		load_icode(e,binary);
 	}
 	else
 	{
@@ -508,10 +511,10 @@ env_run(struct Env *e)
 	{
 		curenv->env_status = ENV_RUNNABLE;
 	}
+	
 	curenv = e;
 	e->env_status = ENV_RUNNING;
 	e->env_runs++;
-	
 	lcr3(PADDR(e->env_pgdir));
 	env_pop_tf(&(e->env_tf));
 }
