@@ -10,8 +10,11 @@
 #include <kern/trap.h>
 #include <kern/syscall.h>
 #include <kern/console.h>
-
+<<<<<<< HEAD
 #include <kern/sched.h>
+=======
+#include <kern/pmap.h>
+>>>>>>> origin/lab3
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -281,9 +284,6 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			return (int32_t)sys_getenvid();
 		case SYS_env_destroy:
 			return (int32_t)sys_env_destroy((envid_t)a1);
-		case SYS_yield:
-			sys_yield();
-			return 0;
 		default:
 			return -E_NO_SYS;
 	}
