@@ -57,6 +57,7 @@ struct PushRegs {
 
 struct Trapframe {
 	struct PushRegs tf_regs;
+	//char tf_fpus[512];
 	uint16_t tf_es;
 	uint16_t tf_padding1;
 	uint16_t tf_ds;
@@ -79,7 +80,7 @@ struct UTrapframe {
 	uint32_t utf_fault_va;	/* va for T_PGFLT, 0 otherwise */
 	uint32_t utf_err;
 	/* trap-time return state */
-	struct PushRegs utf_regs;
+	struct PushRegs utf_regs;//32
 	uintptr_t utf_eip;
 	uint32_t utf_eflags;
 	/* the trap-time stack to return to */

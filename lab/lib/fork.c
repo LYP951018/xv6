@@ -23,18 +23,25 @@ pgfault(struct UTrapframe *utf)
 	// Hint:
 	//   Use the read-only page table mappings at uvpt
 	//   (see <inc/memlayout.h>).
-
+	
 	// LAB 4: Your code here.
-
+	if((err & FEC_WR) == 0 || (uvpd[PDX(addr)] & PTE_P) == 0 ||(uvpt[PGNUM(addr)] & PTE_P) == 0 ||(uvpt[PGNUM(addr)] & PTE_COW) == 0 )
+		panic("Not a write or write to a copy-on-write page.");
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
 	// page to the old page's address.
 	// Hint:
 	//   You should make three system calls.
-
+	
 	// LAB 4: Your code here.
-
-	panic("pgfault not implemented");
+	if((r = sys_page_alloc(0,(void*)PFTEMP,PTE_U | PTE_P | PTE_W)) < 0)
+		panic("Page allocation failed.");
+		
+	addr = ROUNDDOWN(addr,PGSIZE);
+	memmove(PFTEMP,addr,PGSIZE);
+	if((r = sys_page_map(0,PFTEMP,0,addr,PTE_U|PTE_W|PTE_P)) < 0)
+		panic("Page mapping failed.");
+	
 }
 
 //
@@ -52,9 +59,23 @@ static int
 duppage(envid_t envid, unsigned pn)
 {
 	int r;
-
+	void* addr = (void*)(pn * PGSIZE);
+	pte_t pte = uvpt[PGNUM(addr)];
+	if((pte & PTE_W) != 0 || (pte & PTE_COW) != 0)
+	{
+		//duppage sets both PTEs so that the page is not writeable, 
+		//and to contain PTE_COW in the "avail" field to distinguish copy-on-write pages from genuine read-only pages. 
+		if((r = sys_page_map(0,addr,envid,addr,PTE_U | PTE_P | PTE_COW)) < 0)
+			panic("%e",r);
+		if((r = sys_page_map(0,addr,0,addr,PTE_U | PTE_P | PTE_COW)) < 0)
+			panic("%e",r);
+	}
+	else
+	{
+		if((r = sys_page_map(0,addr,envid,addr,PTE_U|PTE_P)) < 0)
+			panic("%e",r);
+	}
 	// LAB 4: Your code here.
-	panic("duppage not implemented");
 	return 0;
 }
 
@@ -78,7 +99,42 @@ envid_t
 fork(void)
 {
 	// LAB 4: Your code here.
-	panic("fork not implemented");
+	set_pgfault_handler(pgfault);
+	envid_t envid;
+	int r;
+	
+	envid = sys_exofork();
+	if(envid == 0)
+	{
+		//child envrionment
+		thisenv = &envs[ENVX(sys_getenvid())];
+		return 0;
+	}
+	//parent
+	uintptr_t addr;
+	//The exception stack is not remapped this way, however. 
+	//Instead you need to allocate a fresh page in the child for the exception stack. 
+	//Since the page fault handler will be doing the actual copying and the page fault handler runs on the exception stack, 
+	//the exception stack cannot be made copy-on-write: who would copy it? 
+	for(addr = UTEXT;addr < UTOP - PGSIZE;addr+=PGSIZE)
+	{
+		if((uvpd[PDX(addr)] & PTE_P) != 0 && (uvpt[PGNUM(addr)] & PTE_P) != 0 &&
+			(uvpt[PGNUM(addr)] & PTE_U) != 0 )	
+		{
+			duppage(envid,PGNUM(addr));	
+		}
+	}
+	
+	if((r = sys_page_alloc(envid,(void*)(UTOP - PGSIZE),PTE_U | PTE_W | PTE_P)) < 0)
+		panic("Exception stack page allocation failed. %e",r);
+		
+	extern void _pgfault_upcall(void);
+	
+	sys_env_set_pgfault_upcall(envid,_pgfault_upcall);
+	
+	if((r = sys_env_set_status(envid,ENV_RUNNABLE)) < 0)
+		panic("Failed to set child status %e",r);
+	return envid;
 }
 
 // Challenge!

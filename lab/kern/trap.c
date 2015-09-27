@@ -306,9 +306,9 @@ page_fault_handler(struct Trapframe *tf)
 
 	// Read processor's CR2 register to find the faulting address
 	fault_va = rcr2();
+	cprintf("%x\n",fault_va);
 	// Handle kernel-mode page faults.
 	// LAB 3: Your code here.
-	mon_backtrace(0,0,0);
 	if((tf->tf_cs & 3) != 3)
 		panic("kernel mode page faults.");
 	// We've already handled kernel-mode exceptions, so if we get here,
@@ -343,7 +343,42 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
-
+	//The JOS user exception stack is also one page in size, and its top is defined to be at virtual address UXSTACKTOP, 
+	//so the valid bytes of the user exception stack are from UXSTACKTOP-PGSIZE through UXSTACKTOP-1 inclusive. 
+	if(curenv->env_pgfault_upcall != NULL)
+	{
+		struct UTrapframe* utf;
+		if(tf->tf_esp >= UXSTACKTOP - PGSIZE && tf->tf_esp < UXSTACKTOP)
+		{
+			//If the user environment is already running on the user exception stack when an exception occurs, then the page fault handler itself has faulted. 
+			//In this case, you should start the new stack frame just under the current tf->tf_esp rather than at UXSTACKTOP. 
+			//You should first push an empty 32-bit word, then a struct UTrapframe. 
+			utf = (struct UTrapframe*)(tf->tf_esp - sizeof(struct UTrapframe) - 4/*32 bit empty word*/);
+		}
+		else
+		{
+			utf = (struct UTrapframe*)(UXSTACKTOP - sizeof(struct UTrapframe));
+		}
+		
+		user_mem_assert(
+			curenv,
+			(void*)utf,
+			sizeof(struct UTrapframe),
+			PTE_U | PTE_W);
+		
+		//save current state
+		utf->utf_eflags = tf->tf_eflags;
+		utf->utf_eip = tf->tf_eip;
+		utf->utf_err = tf->tf_err;
+		utf->utf_esp = tf->tf_esp;
+		utf->utf_fault_va = fault_va;
+		utf->utf_regs = tf->tf_regs;
+		
+		curenv->env_tf.tf_eip = (uint32_t)curenv->env_pgfault_upcall;
+		curenv->env_tf.tf_esp = (uint32_t)utf;
+		cprintf("haha\n");
+		env_run(curenv);
+	}
 	// Destroy the environment that caused the fault.
 	cprintf("[%08x] user fault va %08x ip %08x\n",
 		curenv->env_id, fault_va, tf->tf_eip);

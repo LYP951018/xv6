@@ -38,6 +38,13 @@ enum {
 	ENV_NOT_RUNNABLE
 };
 
+enum{
+	ENV_PRIORITY_IDLE,
+	ENV_PRIORITY_NORMAL,
+	ENV_PRIORITY_HIGH,
+	ENV_PRIORITY_REALTIME
+};
+
 // Special environment types
 enum EnvType {
 	ENV_TYPE_USER = 0,
@@ -65,6 +72,8 @@ struct Env {
 	uint32_t env_ipc_value;		// Data value sent to us
 	envid_t env_ipc_from;		// envid of the sender
 	int env_ipc_perm;		// Perm of page mapping received
+	
+	unsigned env_priority;
 };
 
 #endif // !JOS_INC_ENV_H

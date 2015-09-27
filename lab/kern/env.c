@@ -125,6 +125,7 @@ env_init(void)
 		envs[i].env_id = 0;
 		envs[i].env_status = ENV_FREE;
 		envs[i].env_runs = 0;
+		envs[i].env_priority = ENV_PRIORITY_NORMAL;
 		envs[i].env_link = env_free_list;
 		env_free_list = &envs[i];
 	}
@@ -498,6 +499,7 @@ env_pop_tf(struct Trapframe *tf)
 
 	__asm __volatile("movl %0,%%esp\n"
 		"\tpopal\n"
+		//"\tfxrstor (%%esp)\n"
 		"\tpopl %%es\n"
 		"\tpopl %%ds\n"
 		"\taddl $0x8,%%esp\n" /* skip tf_trapno and tf_errcode */

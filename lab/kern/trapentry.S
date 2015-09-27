@@ -123,6 +123,7 @@ _alltraps:
 	/*pushw $0x0 tf_padding2*/
 	pushl %ds
 	pushl %es
+	#fxsave (%esp)
 	pushal
 	
 	movl $GD_KD,%eax
