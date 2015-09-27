@@ -79,6 +79,36 @@ duppage(envid_t envid, unsigned pn)
 	return 0;
 }
 
+//Implement a shared - memory fork() called sfork().
+//This version should have the parent and child share all their memory pages(so writes in one environment appear in the other) except 
+//for pages in the stack area, which should be treated in the usual copy - on - write manner.
+//Modify user / forktree.c to use sfork() instead of regular fork().Also, once you have finished implementing 
+//IPC in part C, use your sfork() to run user / pingpongs.You will have to find a new way to 
+//provide the functionality of the global thisenv pointer.
+static int
+sduppage(envid_t envid, unsigned pn)
+{
+	int r;
+	void* addr = (void*)(pn * PGSIZE);
+	pte_t pte = uvpt[PGNUM(addr)];
+	if ((pte & PTE_W) != 0 || (pte & PTE_COW) != 0)
+	{
+		//duppage sets both PTEs so that the page is not writeable, 
+		//and to contain PTE_COW in the "avail" field to distinguish copy-on-write pages from genuine read-only pages. 
+		if ((r = sys_page_map(0, addr, envid, addr, PTE_U | PTE_P | PTE_COW)) < 0)
+			panic("%e", r);
+		if ((r = sys_page_map(0, addr, 0, addr, PTE_U | PTE_P | PTE_COW)) < 0)
+			panic("%e", r);
+	}
+	else
+	{
+		if ((r = sys_page_map(0, addr, envid, addr, PTE_U | PTE_P)) < 0)
+			panic("%e", r);
+	}
+	// LAB 4: Your code here.
+	return 0;
+}
+
 //
 // User-level fork with copy-on-write.
 // Set up our page fault handler appropriately.
