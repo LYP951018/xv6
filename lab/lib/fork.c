@@ -34,12 +34,12 @@ pgfault(struct UTrapframe *utf)
 	//   You should make three system calls.
 	
 	// LAB 4: Your code here.
-	if((r = sys_page_alloc(0,(void*)PFTEMP,PTE_U | PTE_P | PTE_W)) < 0)
+	if((r = sys_page_alloc(0, (void*)PFTEMP,PTE_U | PTE_P | PTE_W)) < 0)
 		panic("Page allocation failed.");
 		
-	addr = ROUNDDOWN(addr,PGSIZE);
-	memmove(PFTEMP,addr,PGSIZE);
-	if((r = sys_page_map(0,PFTEMP,0,addr,PTE_U|PTE_W|PTE_P)) < 0)
+	addr = ROUNDDOWN(addr, PGSIZE);
+	memmove(PFTEMP, addr, PGSIZE);
+	if((r = sys_page_map(0, PFTEMP, 0, addr, PTE_U|PTE_W|PTE_P)) < 0)
 		panic("Page mapping failed.");
 	
 }
@@ -146,7 +146,7 @@ fork(void)
 	//Instead you need to allocate a fresh page in the child for the exception stack. 
 	//Since the page fault handler will be doing the actual copying and the page fault handler runs on the exception stack, 
 	//the exception stack cannot be made copy-on-write: who would copy it? 
-	for(addr = UTEXT;addr < UTOP - PGSIZE;addr+=PGSIZE)
+	for(addr = UTEXT; addr < UTOP - PGSIZE; addr+=PGSIZE)
 	{
 		if((uvpd[PDX(addr)] & PTE_P) != 0 && (uvpt[PGNUM(addr)] & PTE_P) != 0 &&
 			(uvpt[PGNUM(addr)] & PTE_U) != 0 )	
@@ -155,7 +155,7 @@ fork(void)
 		}
 	}
 	
-	if((r = sys_page_alloc(envid,(void*)(UTOP - PGSIZE),PTE_U | PTE_W | PTE_P)) < 0)
+	if((r = sys_page_alloc(envid,(void*)(UTOP - PGSIZE), PTE_U | PTE_W | PTE_P)) < 0)
 		panic("Exception stack page allocation failed. %e",r);
 		
 	extern void _pgfault_upcall(void);

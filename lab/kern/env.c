@@ -286,16 +286,16 @@ region_alloc(struct Env *e, void *va, size_t len)
 {
 	// LAB 3: Your code here.
 	// (But only if you need it for load_icode.)
-	uint32_t vaStart =(uint32_t)ROUNDDOWN(va,PGSIZE);
+	uint32_t vaStart =(uint32_t)ROUNDDOWN(va, PGSIZE);
 	
-	uint32_t vaEnd = (uint32_t)ROUNDUP((char*)va + len,PGSIZE);
+	uint32_t vaEnd = (uint32_t)ROUNDUP((char*)va + len, PGSIZE);
 	uint32_t i = 0;
-	for(;vaStart < vaEnd;vaStart+=PGSIZE)
+	for(; vaStart < vaEnd; vaStart += PGSIZE)
 	{
 		struct PageInfo* pp = page_alloc(0);
 		if(pp == NULL)
 			panic("page allocation fails.\n");
-		if(page_insert(e->env_pgdir,pp,(void*)(vaStart),PTE_U | PTE_W) < 0)
+		if(page_insert(e->env_pgdir, pp, (void*)(vaStart), PTE_U | PTE_W) < 0)
 		{
 			panic("page table allocation fails.\n");
 		}
@@ -371,16 +371,16 @@ load_icode(struct Env *e, uint8_t *binary)
 	{
 		if(ph->p_type == ELF_PROG_LOAD)
 		{
-			region_alloc(e,(void*)ph->p_va,ph->p_memsz);
-			memset((void*)ph->p_va,0,ph->p_memsz);
-			memcpy((void*)ph->p_va,binary + ph->p_offset,ph->p_filesz);
+			region_alloc(e, (void*)ph->p_va, ph->p_memsz);
+			memset((void*)ph->p_va, 0, ph->p_memsz);
+			memcpy((void*)ph->p_va, binary + ph->p_offset, ph->p_filesz);
 		}
 	}
 	lcr3(PADDR(kern_pgdir));
 	e->env_tf.tf_eip = (uintptr_t)ElfHdr->e_entry;
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
-	region_alloc(e,(void*)(USTACKTOP - PGSIZE),PGSIZE);
+	region_alloc(e,(void*)(USTACKTOP - PGSIZE), PGSIZE);
 	// LAB 3: Your code here.
 }
 

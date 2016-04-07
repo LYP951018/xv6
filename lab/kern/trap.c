@@ -79,7 +79,7 @@ trap_init(void)
 		{
 			case T_SYSCALL:
 			case T_BRKPT:
-				SETGATE(idt[i],0,GD_KT,idt_entries[i],3);
+				SETGATE(idt[i], 0, GD_KT, idt_entries[i],3 );
 				break;
 			
 			default:
@@ -307,7 +307,6 @@ page_fault_handler(struct Trapframe *tf)
 
 	// Read processor's CR2 register to find the faulting address
 	fault_va = rcr2();
-	cprintf("%x\n",fault_va);
 	// Handle kernel-mode page faults.
 	// LAB 3: Your code here.
 	if((tf->tf_cs & 3) != 3)
@@ -377,7 +376,6 @@ page_fault_handler(struct Trapframe *tf)
 		
 		curenv->env_tf.tf_eip = (uint32_t)curenv->env_pgfault_upcall;
 		curenv->env_tf.tf_esp = (uint32_t)utf;
-		cprintf("haha\n");
 		env_run(curenv);
 	}
 	// Destroy the environment that caused the fault.

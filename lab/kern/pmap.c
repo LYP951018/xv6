@@ -210,7 +210,7 @@ mem_init(void)
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
 
-	boot_map_region(kern_pgdir,UENVS,ROUNDUP(NENV * sizeof(struct Env),PGSIZE),PADDR(envs),PTE_U|PTE_P);
+	boot_map_region(kern_pgdir, UENVS, ROUNDUP(NENV * sizeof(struct Env),PGSIZE), PADDR(envs), PTE_U|PTE_P);
 	
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -223,7 +223,7 @@ mem_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
-	boot_map_region(kern_pgdir,KSTACKTOP -KSTKSIZE,KSTKSIZE,PADDR(bootstack),PTE_W);
+	boot_map_region(kern_pgdir, KSTACKTOP -KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W);
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
 	// Ie.  the VA range [KERNBASE, 2^32) should map to
@@ -233,7 +233,7 @@ mem_init(void)
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
 
-	boot_map_region(kern_pgdir,KERNBASE,~KERNBASE + 1,0,PTE_W);
+	boot_map_region(kern_pgdir, KERNBASE, ~KERNBASE + 1, 0, PTE_W);
 
 	// Initialize the SMP-related parts of the memory map
 	mem_init_mp();
@@ -287,13 +287,13 @@ mem_init_mp(void)
 	//
 	// LAB 4: Your code here:
 	uint32_t nowStackTop = KSTACKTOP;
-	uint32_t size = ROUNDUP(KSTKSIZE,PGSIZE);
+	uint32_t size = KSTKSIZE;
 	uint32_t i = 0;
-	for(;i < NCPU;++i)
+	for(; i < NCPU; ++i)
 	{
 		boot_map_region(
 			kern_pgdir,
-			nowStackTop - ROUNDUP(KSTKGAP,PGSIZE),
+			nowStackTop - size,
 			size,
 			PADDR(&percpu_kstacks[i]),
 			PTE_W
@@ -363,17 +363,6 @@ page_init(void)
 		pages[i].pp_link = page_free_list;
 		page_free_list = &pages[i];
 	}
-	//extern char end[];
-	//page_free_list = page_free_list->pp_link;
-	//remove_list_item(IOPHYSMEM, (uint32_t)end / PGSIZE);
-	//remove_list_item(MMIOBASE / PGSIZE,MMIOLIM / PGSIZE);
-	//we should mark the kernel
-	//remove_list_item(PPN(PADDR(KERNBASE)),PPN((uint32_t)end));
-	//we should mark page,too
-	//pages is virtual address
-	//remove_list_item(PPN(PADDR(pages)), PPN(PADDR(pages + npages)) );
-	//we can do all things above by one sentence
-	//page_free_list = pages + (PADDR(pages + npages) / PGSIZE);
 }
 
 void walk_list(void)

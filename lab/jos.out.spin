@@ -11,25 +11,12 @@ enabled interrupts: 1 2
 [00000000] new env 00001000
 I am the parent.  Forking the child...
 [00001000] new env 00001001
-[00001000] user panic in <unknown> at lib/fork.c:76: invalid parameter
-Welcome to the JOS kernel monitor!
-Type 'help' for a list of commands.
-TRAP frame at 0xf0296000 from CPU 0
-  edi  0x00000000
-  esi  0x00801396
-  ebp  0xeebfdf70
-  oesp 0xefffffdc
-  ebx  0xeebfdf84
-  edx  0xeebfde28
-  ecx  0x00000001
-  eax  0x00000001
-  es   0x----0023
-  ds   0x----0023
-  trap 0x00000003 Breakpoint
-  err  0x00000000
-  eip  0x00800fb4
-  cs   0x----001b
-  flag 0x00000082
-  esp  0xeebfdf68
-  ss   0x----0023
-qemu: terminating on signal 15 from pid 7097
+eebfdf80
+haha
+I am the parent.  Running the child...
+eebfdf94
+haha
+802004
+haha
+I am the child.  Spinning...
+qemu: terminating on signal 15 from pid 14233
