@@ -192,7 +192,7 @@ env_setup_vm(struct Env *e)
 
 	// LAB 3: Your code here.
 	uint32_t pva = (uint32_t)page2kva(p);
-	memcpy((void*)pva,kern_pgdir,PGSIZE);
+	memcpy((void*)pva, kern_pgdir, PGSIZE);
 	e->env_pgdir = (pde_t*)pva;
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
@@ -233,8 +233,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	e->env_parent_id = parent_id;
 	e->env_type = ENV_TYPE_USER;
 	e->env_status = ENV_RUNNABLE;
-	e->env_runs = 0;
-	e->env_tf.tf_eflags |= FL_IF;
+	e->env_runs = 0;	
 
 	// Clear out all the saved register state,
 	// to prevent the register values
@@ -259,7 +258,8 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// Enable interrupts while in user mode.
 	// LAB 4: Your code here.
-
+    e->env_tf.tf_eflags |= FL_IF;
+    
 	// Clear the page fault handler until user installs one.
 	e->env_pgfault_upcall = 0;
 
@@ -367,7 +367,7 @@ load_icode(struct Env *e, uint8_t *binary)
 	ph = (struct Proghdr*)((uint8_t*)ElfHdr+ElfHdr->e_phoff);
 	eph = ph + ElfHdr->e_phnum;
 	lcr3(PADDR(e->env_pgdir));
-	for(;ph < eph;++ph)
+	for(; ph < eph; ++ph)
 	{
 		if(ph->p_type == ELF_PROG_LOAD)
 		{
@@ -380,7 +380,7 @@ load_icode(struct Env *e, uint8_t *binary)
 	e->env_tf.tf_eip = (uintptr_t)ElfHdr->e_entry;
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
-	region_alloc(e,(void*)(USTACKTOP - PGSIZE), PGSIZE);
+	region_alloc(e, (void*)(USTACKTOP - PGSIZE), PGSIZE);
 	// LAB 3: Your code here.
 }
 
@@ -396,11 +396,11 @@ env_create(uint8_t *binary, enum EnvType type)
 {
 	// LAB 3: Your code here.
 	struct Env* e = NULL;
-	int errCode = env_alloc(&e,0);
+	int errCode = env_alloc(&e, 0);
 	if(errCode == 0)
 	{
 		e->env_type = type;
-		load_icode(e,binary);
+		load_icode(e, binary);
 	}
 	else
 	{
@@ -417,13 +417,13 @@ env_free(struct Env *e)
 	pte_t *pt;
 	uint32_t pdeno, pteno;
 	physaddr_t pa;
-
 	// If freeing the current environment, switch to kern_pgdir
 	// before freeing the page directory, just in case the page
 	// gets reused.
 	if (e == curenv)
 		lcr3(PADDR(kern_pgdir));
-
+    
+    
 	// Note the environment's demise.
 	cprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
 
@@ -474,6 +474,7 @@ env_destroy(struct Env *e)
 	// it traps to the kernel.
 	if (e->env_status == ENV_RUNNING && curenv != e) {
 		e->env_status = ENV_DYING;
+        cprintf("%x is dying!\n", e->env_id);
 		return;
 	}
 
@@ -540,7 +541,6 @@ env_run(struct Env *e)
 	{
 		curenv->env_status = ENV_RUNNABLE;
 	}
-	
 	curenv = e;
 	e->env_status = ENV_RUNNING;
 	e->env_runs++;

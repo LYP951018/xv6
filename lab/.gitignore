@@ -42,4 +42,6 @@ Thumbs.db
 
 *.db
 *.pyc
-jos.out.*
+*.txt
+lab/.vscode
+jos\.out*

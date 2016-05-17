@@ -295,7 +295,7 @@ mem_init_mp(void)
 			kern_pgdir,
 			nowStackTop - size,
 			size,
-			PADDR(&percpu_kstacks[i]),
+			PADDR(percpu_kstacks[i]),
 			PTE_W
 		);
 		nowStackTop -= (KSTKSIZE + KSTKGAP);

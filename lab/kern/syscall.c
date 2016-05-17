@@ -84,7 +84,7 @@ sys_exofork(void)
 	// will appear to return 0.
 	struct Env* e,*envOnCpu = thiscpu->cpu_env;
 	
-	int ret = env_alloc(&e,envOnCpu->env_id);
+	int ret = env_alloc(&e, envOnCpu->env_id);
 	if(ret < 0) return ret;
 	else
 	{
@@ -116,12 +116,10 @@ sys_env_set_status(envid_t envid, int status)
 	// LAB 4: Your code here.
 	if(status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE) return -E_INVAL;
 	struct Env* e;
-	if(envid2env(envid,&e,1) <0)
+	if(envid2env(envid, &e, 1) <0)
 		return -E_BAD_ENV;
 	else
-	{
 		e->env_status = status;
-	}
 	return 0;
 }
 
@@ -137,7 +135,7 @@ static int
 sys_env_set_pgfault_upcall(envid_t envid, void *func)
 {
 	struct Env* e;
-	if(envid2env(envid,&e,1) < 0)
+	if(envid2env(envid, &e, 1) < 0)
 		return -E_BAD_ENV;
 	e->env_pgfault_upcall = func;
 	return 0;
@@ -169,17 +167,16 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 	//   If page_insert() fails, remember to free the page you
 	//   allocated!
 	struct Env* e;
-	if(envid2env(envid,&e,1) < 0) return -E_BAD_ENV;
+	if(envid2env(envid, &e, 1) < 0) return -E_BAD_ENV;
 	if((uint32_t)va >= UTOP || (uint32_t)va % PGSIZE != 0 ) return -E_INVAL;
 	if(((PTE_U & perm) == 0|| (PTE_P & perm) == 0) || ((~(PTE_U|PTE_P|PTE_AVAIL|PTE_W)) & perm) != 0 ) return -E_INVAL;
 	struct PageInfo* pp = page_alloc(ALLOC_ZERO);
 	if(pp == NULL) return -E_NO_MEM;
-	if(page_insert(e->env_pgdir,pp,va,perm) < 0)
+	if(page_insert(e->env_pgdir, pp, va, perm) < 0)
 	{
 		page_free(pp);
 		return -E_NO_MEM;	
 	}
-	// LAB 4: Your code here.
 	return 0;
 }
 

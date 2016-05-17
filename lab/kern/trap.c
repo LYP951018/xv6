@@ -80,10 +80,9 @@ trap_init(void)
 			case T_SYSCALL:
 			case T_BRKPT:
 				SETGATE(idt[i], 0, GD_KT, idt_entries[i],3 );
-				break;
-			
+				break;			
 			default:
-				SETGATE(idt[i],0,GD_KT,idt_entries[i],0);
+				SETGATE(idt[i], 0, GD_KT, idt_entries[i], 0);
 		}	
 	}
 	// Per-CPU setup 
@@ -119,17 +118,19 @@ trap_init_percpu(void)
 
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
-	ts.ts_esp0 = KSTACKTOP - cpunum() * (KSTKSIZE + KSTKGAP);
-	ts.ts_ss0 = GD_KD;
-
+    int cur_cpuid = cpunum();
+    
+	thiscpu->cpu_ts.ts_esp0 = (uintptr_t) percpu_kstacks[thiscpu->cpu_id] + KSTKSIZE;
+	thiscpu->cpu_ts.ts_ss0 = GD_KD;
+    
 	// Initialize the TSS slot of the gdt.
-	gdt[(GD_TSS0 >> 3) + cpunum()] = SEG16(STS_T32A, (uint32_t) (&ts),
+	gdt[(GD_TSS0 >> 3) + cur_cpuid] = SEG16(STS_T32A, (uint32_t) (&thiscpu->cpu_ts),
 					sizeof(struct Taskstate) - 1, 0);
-	gdt[(GD_TSS0 >> 3) + cpunum()].sd_s = 0;
+	gdt[(GD_TSS0 >> 3) + cur_cpuid].sd_s = 0;
 
 	// Load the TSS selector (like other segment selectors, the
 	// bottom three bits are special; we leave them 0)
-	ltr(((GD_TSS0 >> 3) + cpunum()) << 3);
+	ltr(GD_TSS0 + cur_cpuid * sizeof(struct Segdesc));
 
 	// Load the IDT
 	lidt(&idt_pd);
@@ -219,19 +220,20 @@ trap_dispatch(struct Trapframe *tf)
 			regs->reg_eax = ret;
 			return;
 		}
-		break;
 		default:
-		break;
+		    break;
 	}
 
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
 	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER)
-		sched_yield();
+    {
+        lapic_eoi();
+        //sched_yield never returns.
+        sched_yield();
+    }		
 	// Unexpected trap: The user process or the kernel has a bug.
-	print_trapframe(tf);
-	mon_backtrace(0,0,0);
 	if (tf->tf_cs == GD_KT)
 		panic("unhandled trap in kernel");
 	else {
@@ -267,7 +269,6 @@ trap(struct Trapframe *tf)
 		// serious kernel work.
 		// LAB 4: Your code here.
 		lock_kernel();
-		assert(curenv);
 
 		// Garbage collect if current enviroment is a zombie
 		if (curenv->env_status == ENV_DYING) {

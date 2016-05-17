@@ -29,27 +29,20 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
-	struct Env* start = (idle == NULL) ? envs : idle;
-	struct Env* nowEnv = start;
-	bool first = true;
-	while(true)
-	{
-		if(nowEnv->env_status == ENV_RUNNABLE && nowEnv->env_cpunum == cpunum())
-		{
-			env_run(nowEnv);
-            cprintf("Now turn to %d\n", nowEnv - envs);
-			return;
-		}
-		++nowEnv;
-		if(nowEnv == envs + NENV) nowEnv = envs;
-		if(nowEnv == start) break;
-	}
+   
+    int search_count = NENV;
+    struct Env* search_start = idle ? idle + 1 : envs;
+    int start_index = search_start - envs;
+    int i = 0; 
+    for(; i < search_count; ++i)
+    {
+        struct Env* cur_env = &envs[(start_index + i) % NENV];
+        if(cur_env->env_status == ENV_RUNNABLE)
+            env_run(cur_env);           
+    }
+    
 	if(idle && idle->env_status == ENV_RUNNING)
-	{
-		env_run(idle);
-        cprintf("No choice, turn to %d\n", idle - envs);
-		return;
-	}
+        env_run(idle);
 	// sched_halt never returns
 	sched_halt();
 }

@@ -146,12 +146,12 @@ fork(void)
 	//Instead you need to allocate a fresh page in the child for the exception stack. 
 	//Since the page fault handler will be doing the actual copying and the page fault handler runs on the exception stack, 
 	//the exception stack cannot be made copy-on-write: who would copy it? 
-	for(addr = UTEXT; addr < UTOP - PGSIZE; addr+=PGSIZE)
+	for(addr = UTEXT; addr < UTOP - PGSIZE; addr += PGSIZE)
 	{
 		if((uvpd[PDX(addr)] & PTE_P) != 0 && (uvpt[PGNUM(addr)] & PTE_P) != 0 &&
 			(uvpt[PGNUM(addr)] & PTE_U) != 0 )	
 		{
-			duppage(envid,PGNUM(addr));	
+			duppage(envid, PGNUM(addr));	
 		}
 	}
 	
@@ -160,9 +160,9 @@ fork(void)
 		
 	extern void _pgfault_upcall(void);
 	
-	sys_env_set_pgfault_upcall(envid,_pgfault_upcall);
+	sys_env_set_pgfault_upcall(envid, _pgfault_upcall);
 	
-	if((r = sys_env_set_status(envid,ENV_RUNNABLE)) < 0)
+	if((r = sys_env_set_status(envid, ENV_RUNNABLE)) < 0)
 		panic("Failed to set child status %e",r);
 	return envid;
 }
