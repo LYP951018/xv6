@@ -118,7 +118,7 @@ void
 env_init(void)
 {
 	// Set up envs array
-	// LAB 3: Your code here.
+	// LAB 3: Your code here.  
 	uint32_t i = NENV - 1;
 	for(;i != (uint32_t)-1 ;--i)
 	{

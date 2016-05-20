@@ -45,6 +45,11 @@ _kaddr(const char *file, int line, physaddr_t pa)
 	return (void *)(pa + KERNBASE);
 }
 
+static __inline bool is_page_aligned(void* addr)
+{
+    uintptr_t mask = PGSIZE - 1;
+    return (((uintptr_t)addr - 1) & mask) == mask;
+}
 
 enum {
 	// For page_alloc, zero the returned physical page.
